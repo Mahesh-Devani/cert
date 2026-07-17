@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CertSchool — Learn & Generate X.509 Certificates in Your Browser</title>
+<meta name="description" content="Generate real X.509 certificates entirely in your browser using forge.js. Learn about PKI, certificate chains, SANs, and more with interactive explainers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0e17;
+    --panel: #111827;
+    --panel-2: #1a2237;
+    --panel-glass: rgba(17, 24, 39, 0.75);
+    --line: #1f2a40;
+    --line-glow: rgba(99, 179, 237, 0.12);
+    --text: #e2e8f0;
+    --text-dim: #7f8ea3;
+    --accent: #60a5fa;
+    --accent-dim: #3b6db5;
+    --accent-glow: rgba(96, 165, 250, 0.15);
+    --teal: #34d399;
+    --teal-dim: #1a7a55;
+    --amber: #fbbf24;
+    --amber-dim: #8a6d14;
+    --rose: #fb7185;
+    --green: #4ade80;
+    --purple: #a78bfa;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── ambient background ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -30%; left: -10%;
+    width: 80vw; height: 60vh;
+    background: radial-gradient(ellipse, rgba(96,165,250,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%; right: -15%;
+    width: 70vw; height: 50vh;
+    background: radial-gradient(ellipse, rgba(52,211,153,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── scrollbar ─── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─── header ─── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    padding: 56px 40px 48px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(96,165,250,0.03) 0%, transparent 100%);
+  }
+  .hero-inner { max-width: 1400px; margin: 0 auto; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--accent);
+  }
+  h1 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-desc {
+    color: var(--text-dim);
+    max-width: 700px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .hero-desc code {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(96,165,250,0.08);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .badge-row { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(4px);
+  }
+
+  /* ─── navigation ─── */
+  .nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,14,23,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--line);
+    padding: 0 40px;
+  }
+  .nav-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .nav-link {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 14px 18px;
+    color: var(--text-dim);
+    text-decoration: none;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-link:hover {
+    color: var(--text);
+    text-decoration: none;
+    border-bottom-color: var(--accent-dim);
+  }
+  .nav-link.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ─── main layout ─── */
+  .main-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  /* ─── sections ─── */
+  .section {
+    padding: 48px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .section:last-child { border-bottom: none; }
+  .section-header {
+    margin-bottom: 28px;
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 6px;
+    max-width: 700px;
+  }
+
+  /* ─── concept cards (educational) ─── */
+  .concepts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .concept-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow: hidden;
+    transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
+    cursor: default;
+  }
+  .concept-card:hover {
+    border-color: rgba(96,165,250,0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(96,165,250,0.08);
+  }
+  .concept-header {
+    padding: 18px 20px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .concept-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .concept-icon.blue { background: rgba(96,165,250,0.12); color: var(--accent); }
+  .concept-icon.green { background: rgba(52,211,153,0.12); color: var(--teal); }
+  .concept-icon.amber { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .concept-icon.purple { background: rgba(167,139,250,0.12); color: var(--purple); }
+  .concept-icon.rose { background: rgba(251,113,133,0.12); color: var(--rose); }
+  .concept-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .concept-subtitle {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .concept-body {
+    padding: 0 20px 18px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+  .concept-body p { margin-bottom: 10px; }
+  .concept-body p:last-child { margin-bottom: 0; }
+  .concept-body code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(96,165,250,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .concept-body .highlight {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ─── chain diagram ─── */
+  .chain-diagram {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 28px 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    margin-top: 16px;
+  }
+  .chain-node {
+    text-align: center;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+    min-width: 140px;
+    flex-shrink: 0;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .chain-node.active {
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 20px rgba(96,165,250,0.1);
+  }
+  .chain-node .node-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .chain-node .node-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .chain-node .node-file {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .chain-arrow {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    padding: 0 6px;
+    color: var(--text-dim);
+    font-size: 20px;
+  }
+  .chain-arrow .arrow-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: center;
+    line-height: 1.3;
+    color: var(--text-dim);
+  }
+
+  /* ─── two-column layout ─── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 28px;
+  }
+  @media (max-width: 1000px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* ─── config editor ─── */
+  .editor-frame {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--panel);
+  }
+  .editor-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .editor-titlebar .fname { color: var(--text); }
+  .reset-btn {
+    background: none; border: none;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .reset-btn:hover { background: rgba(96,165,250,0.1); }
+  textarea#sanCnf {
+    width: 100%;
+    min-height: 320px;
+    background: var(--panel);
+    color: var(--text);
+    border: none;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    tab-size: 2;
+  }
+  .hint {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .hint code {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: rgba(96,165,250,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* ─── key size selector ─── */
+  .options-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .option-label {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .option-select {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+  .option-select:focus { border-color: var(--accent-dim); }
+
+  /* ─── action cards ─── */
+  .actions { display: flex; flex-direction: column; gap: 12px; }
+  .action-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    transition: border-color 0.2s;
+  }
+  .action-card:hover { border-color: rgba(96,165,250,0.2); }
+  .action-card .info { flex: 1; }
+  .action-card .label { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+  .action-card .desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+  .btn {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    border-radius: 8px;
+    padding: 10px 18px;
+    border: 1px solid var(--accent-dim);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 0;
+  }
+  .btn:hover:not(:disabled)::before { opacity: 1; }
+  .btn:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+  .btn span { position: relative; z-index: 1; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn.teal { border-color: var(--teal-dim); color: var(--teal); }
+  .btn.teal::before { background: var(--teal); }
+  .btn.teal:hover:not(:disabled) { border-color: var(--teal); }
+  .btn.sm { padding: 6px 12px; font-size: 11.5px; }
+  .status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--line);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.ok { background: var(--green); box-shadow: 0 0 8px rgba(74,222,128,0.3); }
+  .status-dot.busy { background: var(--amber); animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .upload-row {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .upload-row .upload-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* ─── terminal ─── */
+  .terminal {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #080c14;
+    overflow: hidden;
+  }
+  .terminal .bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .dot3 { width: 10px; height: 10px; border-radius: 50%; }
+  .dot3.r { background: var(--rose); }
+  .dot3.y { background: var(--amber); }
+  .dot3.g { background: var(--green); }
+  .terminal .bar .title {
+    margin-left: 10px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .terminal .bar .clear-btn {
+    margin-left: auto;
+    background: none; border: none;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .terminal .bar .clear-btn:hover { color: var(--text); }
+  #log {
+    padding: 16px 18px;
+    height: 400px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #log .cmd { color: var(--teal); }
+  #log .cmd::before { content: "$ "; color: var(--text-dim); }
+  #log .stdout { color: var(--text-dim); }
+  #log .info { color: var(--accent); }
+  #log .ok { color: var(--green); }
+  #log .err { color: var(--rose); }
+  #log .note { color: var(--text-dim); font-style: italic; }
+  #log .sep { color: var(--line); }
+
+  /* ─── files output ─── */
+  .files { display: flex; flex-direction: column; gap: 8px; }
+  .file-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--panel);
+    transition: border-color 0.2s;
+    animation: fadeSlideIn 0.3s ease;
+  }
+  .file-row:hover { border-color: rgba(96,165,250,0.2); }
+  .file-row .fname { color: var(--text); }
+  .file-row .ftype { color: var(--text-dim); margin-left: 8px; font-size: 11px; }
+  .file-row .dl-btn {
+    font-size: 11.5px;
+    border: 1px solid var(--line);
+    padding: 5px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--accent);
+    transition: all 0.15s;
+  }
+  .file-row .dl-btn:hover {
+    border-color: var(--accent);
+    background: rgba(96,165,250,0.08);
+    text-decoration: none;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 28px;
+    color: var(--text-dim);
+    font-size: 13px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ─── cert viewer ─── */
+  .cert-viewer {
+    margin-top: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .cert-viewer-header {
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cert-viewer-header .label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .cert-viewer-body {
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .cert-field { margin-bottom: 6px; }
+  .cert-field .cf-label { color: var(--accent); }
+  .cert-field .cf-value { color: var(--text); }
+
+  /* ─── footer ─── */
+  footer {
+    position: relative;
+    z-index: 1;
+    padding: 32px 40px 48px;
+    text-align: center;
+    border-top: 1px solid var(--line);
+  }
+  footer p {
+    color: var(--text-dim);
+    font-size: 12.5px;
+    font-family: var(--mono);
+  }
+  footer .trust-note {
+    margin-top: 10px;
+    color: var(--text-dim);
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  /* ─── animations ─── */
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in {
+    animation: fadeSlideIn 0.4s ease;
+  }
+
+  /* ─── decode section ─── */
+  .decode-input-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 768px) {
+    .decode-input-area { grid-template-columns: 1fr; }
+  }
+  .decode-paste-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+  .decode-paste-wrap textarea {
+    width: 100%;
+    min-height: 220px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .decode-paste-wrap textarea:focus {
+    border-color: var(--accent-dim);
+  }
+  .decode-paste-wrap textarea::placeholder {
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+  .drop-zone {
+    border: 2px dashed var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(96,165,250,0.04);
+  }
+  .drop-zone .drop-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+  .drop-zone .drop-text {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .drop-zone .drop-hint {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    opacity: 0.6;
+    font-family: var(--mono);
+  }
+  .decode-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .decode-result {
+    margin-top: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow: hidden;
+    animation: fadeSlideIn 0.35s ease;
+  }
+  .decode-result-header {
+    padding: 14px 18px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .decode-result-header .dr-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .decode-result-header .dr-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+  }
+  .decode-result-header .dr-badge.ca { border-color: var(--amber-dim); color: var(--amber); }
+  .decode-result-header .dr-badge.leaf { border-color: var(--teal-dim); color: var(--teal); }
+  .decode-result-header .dr-badge.selfsigned { border-color: var(--purple); color: var(--purple); }
+  .decode-result-body {
+    padding: 18px;
+  }
+  .decode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 768px) {
+    .decode-grid { grid-template-columns: 1fr; }
+  }
+  .decode-field {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+  }
+  .decode-field.full-width {
+    grid-column: 1 / -1;
+  }
+  .decode-field .df-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .decode-field .df-value {
+    font-size: 13.5px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .decode-field .df-value.mono {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .san-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .san-tag {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(96,165,250,0.08);
+    border: 1px solid rgba(96,165,250,0.15);
+    color: var(--accent);
+  }
+  .san-tag.ip {
+    background: rgba(52,211,153,0.08);
+    border-color: rgba(52,211,153,0.15);
+    color: var(--teal);
+  }
+  .validity-bar {
+    margin-top: 8px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .validity-bar .fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .validity-bar .fill.valid { background: var(--green); }
+  .validity-bar .fill.expiring { background: var(--amber); }
+  .validity-bar .fill.expired { background: var(--rose); }
+
+  /* ─── file group rows ─── */
+  .file-group {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    overflow: hidden;
+    margin-bottom: 8px;
+    animation: fadeSlideIn 0.3s ease;
+  }
+  .file-group-header {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .file-group-header .fg-icon { font-size: 14px; }
+  .file-group-body {
+    padding: 0;
+  }
+  .file-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .file-entry:last-child { border-bottom: none; }
+  .file-entry .fe-name { color: var(--text); }
+  .file-entry .fe-ext {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    margin-left: 6px;
+  }
+  .file-entry .fe-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* ─── responsive ─── */
+  @media (max-width: 768px) {
+    .hero { padding: 36px 20px 32px; }
+    h1 { font-size: 28px; }
+    .main-wrap { padding: 0 20px; }
+    .nav-bar { padding: 0 20px; }
+    .concepts-grid { grid-template-columns: 1fr; }
+    .chain-diagram { flex-direction: column; }
+    .chain-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">client-side pki tooling</p>
+    <h1>CertSchool</h1>
+    <p class="hero-desc">
+      Generate real X.509 certificates entirely in your browser, <em>and</em> understand what's happening under the hood.
+      Powered by <a href="https://github.com/digitalbazaar/forge" target="_blank" rel="noopener">forge.js</a> — nothing you generate
+      here ever leaves your browser. No server, no uploads, no tracking.
+    </p>
+    <div class="badge-row">
+      <span class="badge">🔐 forge.js · pure JS crypto</span>
+      <span class="badge">🌐 100% client-side</span>
+      <span class="badge">📚 educational + functional</span>
+      <span class="badge">⚡ no install required</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ NAV ═══════════════════ -->
+<nav class="nav-bar">
+  <div class="nav-inner">
+    <a href="#learn" class="nav-link active" onclick="setActiveNav(this)">Learn the Concepts</a>
+    <a href="#configure" class="nav-link" onclick="setActiveNav(this)">Configure</a>
+    <a href="#generate" class="nav-link" onclick="setActiveNav(this)">Generate</a>
+    <a href="#output" class="nav-link" onclick="setActiveNav(this)">Output & Log</a>
+    <a href="#decode" class="nav-link" onclick="setActiveNav(this)">Decode Certificate</a>
+  </div>
+</nav>
+
+<div class="main-wrap">
+
+<!-- ═══════════════════ SECTION: LEARN ═══════════════════ -->
+<section class="section" id="learn">
+  <div class="section-header">
+    <div class="section-num">01 — Understand</div>
+    <div class="section-title">How Certificates Actually Work</div>
+    <p class="section-desc">Before generating anything, understand the core concepts. Each card below explains a fundamental building block of the PKI (Public Key Infrastructure) system that secures the internet.</p>
+  </div>
+
+  <div class="concepts-grid">
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon blue">🔑</div>
+        <div>
+          <div class="concept-title">Public/Private Key Pairs</div>
+          <div class="concept-subtitle">The foundation of all certificate operations</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p>Every certificate starts with a <span class="highlight">key pair</span>: a private key (kept secret) and a public key (shared freely). Data encrypted with one can only be decrypted with the other.</p>
+        <p>When you generate a certificate here, we create an RSA key pair. The <code>server.key</code> file is your private key — <em>never share it</em>. The public key gets embedded inside the certificate itself.</p>
+      </div>
+    </div>
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon green">📜</div>
+        <div>
+          <div class="concept-title">X.509 Certificates</div>
+          <div class="concept-subtitle">The digital identity card for servers</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p>An X.509 certificate is a standardized document that binds a <span class="highlight">public key to an identity</span> (like a domain name). It's what your browser checks when you see the 🔒 padlock.</p>
+        <p>It contains: the subject (who it identifies), the issuer (who vouches for it), validity dates, the public key, and extensions like SAN entries. The whole thing is digitally signed.</p>
+      </div>
+    </div>
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon amber">🏛️</div>
+        <div>
+          <div class="concept-title">Certificate Authority (CA)</div>
+          <div class="concept-subtitle">The trusted entity that signs certificates</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p>A CA is an entity whose job is to <span class="highlight">verify identity and sign certificates</span>. Your browser ships with ~150 pre-trusted root CAs (like Let's Encrypt, DigiCert).</p>
+        <p>For development, you can create your own CA — that's step 1 below. Import its <code>ca.crt</code> into your OS trust store once, and every certificate it signs will be trusted automatically.</p>
+      </div>
+    </div>
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon purple">🌐</div>
+        <div>
+          <div class="concept-title">SAN — Subject Alternative Name</div>
+          <div class="concept-subtitle">Why CN alone doesn't work anymore</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p>Since 2017, browsers <span class="highlight">ignore the Common Name (CN)</span> field for hostname verification. Instead, they check the SAN extension for the list of valid DNS names and IPs.</p>
+        <p>SAN entries like <code>DNS.1 = myapp.local</code> and <code>IP.1 = 127.0.0.1</code> tell the browser exactly which hostnames this certificate is valid for. No SAN = browser rejection.</p>
+      </div>
+    </div>
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon rose">✍️</div>
+        <div>
+          <div class="concept-title">Self-Signed vs. CA-Signed</div>
+          <div class="concept-subtitle">Two paths, different trust models</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p><span class="highlight">Self-signed:</span> the certificate signs itself with its own key. Quick and easy, but every device must explicitly trust this specific certificate.</p>
+        <p><span class="highlight">CA-signed:</span> a separate CA key signs the certificate. Any device that trusts the CA automatically trusts everything it signs — much easier to manage at scale. This is how the real internet works.</p>
+      </div>
+    </div>
+
+    <div class="concept-card">
+      <div class="concept-header">
+        <div class="concept-icon blue">📋</div>
+        <div>
+          <div class="concept-title">CSR — Certificate Signing Request</div>
+          <div class="concept-subtitle">How you ask a CA to sign your certificate</div>
+        </div>
+      </div>
+      <div class="concept-body">
+        <p>A CSR is a formal request containing your <span class="highlight">public key + identity info</span>, signed by your private key. You send this to a CA, and they send back a signed certificate.</p>
+        <p>The CSR proves you own the private key without revealing it. In the CA-signed flow (step 2b), the tool generates the CSR automatically and signs it with your local CA.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Chain Diagram -->
+  <div class="section-header" style="margin-top: 36px;">
+    <div class="section-title" style="font-size: 18px;">Trust Chain Visualization</div>
+    <p class="section-desc">This is the chain of trust. The browser trusts the root CA, which vouches for the server certificate.</p>
+  </div>
+  <div class="chain-diagram" id="chainDiagram">
+    <div class="chain-node" id="chain-root">
+      <div class="node-label">Root CA</div>
+      <div class="node-name">CertSchool Dev CA</div>
+      <div class="node-file">ca.crt + ca.key</div>
+    </div>
+    <div class="chain-arrow">
+      <div>
+        <div style="font-size: 24px;">→</div>
+        <div class="arrow-label">signs</div>
+      </div>
+    </div>
+    <div class="chain-node" id="chain-csr">
+      <div class="node-label">CSR</div>
+      <div class="node-name">Signing Request</div>
+      <div class="node-file">server.csr</div>
+    </div>
+    <div class="chain-arrow">
+      <div>
+        <div style="font-size: 24px;">→</div>
+        <div class="arrow-label">produces</div>
+      </div>
+    </div>
+    <div class="chain-node" id="chain-leaf">
+      <div class="node-label">Leaf Cert</div>
+      <div class="node-name">myapp.local</div>
+      <div class="node-file">server.crt + server.key</div>
+    </div>
+    <div class="chain-arrow">
+      <div>
+        <div style="font-size: 24px;">→</div>
+        <div class="arrow-label">trusted by</div>
+      </div>
+    </div>
+    <div class="chain-node">
+      <div class="node-label">Client</div>
+      <div class="node-name">Browser / OS</div>
+      <div class="node-file">trust store</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION: CONFIGURE ═══════════════════ -->
+<section class="section" id="configure">
+  <div class="section-header">
+    <div class="section-num">02 — Configure</div>
+    <div class="section-title">Certificate Configuration</div>
+    <p class="section-desc">Edit the fields below to customize your certificate. The config format mirrors OpenSSL's <code>san.cnf</code> — same section names, same rules.</p>
+  </div>
+
+  <div class="editor-frame">
+    <div class="editor-titlebar">
+      <span class="fname">san.cnf</span>
+      <button class="reset-btn" onclick="resetCnf()">↺ reset to template</button>
+    </div>
+    <textarea id="sanCnf" spellcheck="false"></textarea>
+  </div>
+  <p class="hint">
+    Edit <code>[dn]</code> for your organization details, and <code>[alt_names]</code> to list every DNS name and IP address this certificate should cover.
+    Add entries like <code>DNS.4 = api.myapp.local</code> or <code>IP.2 = 192.168.1.100</code> on new lines.
+  </p>
+  <div class="options-row">
+    <span class="option-label">Key Size:</span>
+    <select class="option-select" id="keySize">
+      <option value="2048" selected>2048 bit (standard)</option>
+      <option value="3072">3072 bit (stronger)</option>
+      <option value="4096">4096 bit (maximum — slow)</option>
+    </select>
+    <span class="option-label">Validity:</span>
+    <select class="option-select" id="validityDays">
+      <option value="90">90 days</option>
+      <option value="365" selected>1 year</option>
+      <option value="730">2 years</option>
+      <option value="825">825 days (Apple max)</option>
+    </select>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION: GENERATE ═══════════════════ -->
+<section class="section" id="generate">
+  <div class="section-header">
+    <div class="section-num">03 — Generate</div>
+    <div class="section-title">Build Your Certificate Chain</div>
+    <p class="section-desc">Walk through the steps below. Each button generates real cryptographic material using forge.js in your browser.</p>
+  </div>
+
+  <div class="actions">
+
+    <!-- Step 1: CA -->
+    <div class="action-card" style="flex-direction: column; align-items: stretch;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+        <div class="info">
+          <div class="label">1. Generate a Local CA</div>
+          <div class="desc">Creates a root key pair and a self-signed CA certificate. Only needed if you want CA-signed certs (recommended for dev).</div>
+        </div>
+        <span class="status-dot" id="dot-ca"></span>
+        <button class="btn" id="btn-ca" onclick="stepGenerateCA()"><span>Generate CA</span></button>
+      </div>
+      <div class="input-row" style="margin-top: 14px; display: flex; gap: 12px; font-size: 13px;">
+        <div style="flex: 1;">
+          <label style="display: block; color: var(--text-dim); margin-bottom: 4px; font-size: 11.5px;">CA Common Name (CN):</label>
+          <input type="text" id="ca-cn" value="CertSchool Local Dev CA" style="width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--mono); font-size: 12px;" spellcheck="false">
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; color: var(--text-dim); margin-bottom: 4px; font-size: 11.5px;">Organization (O):</label>
+          <input type="text" id="ca-o" value="CertSchool" style="width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--mono); font-size: 12px;" spellcheck="false">
+        </div>
+      </div>
+      <div class="upload-row">
+        <span class="upload-label">or import existing CA:</span>
+        <label class="btn teal sm" style="cursor:pointer;">
+          <span>ca.key</span> <input type="file" id="upload-ca-key" accept=".key,.pem" style="display:none;" onchange="handleCAUpload()">
+        </label>
+        <label class="btn teal sm" style="cursor:pointer;">
+          <span>ca.crt</span> <input type="file" id="upload-ca-crt" accept=".crt,.pem,.cer" style="display:none;" onchange="handleCAUpload()">
+        </label>
+        <span id="upload-ca-status" style="font-size: 11.5px; color: var(--text-dim);"></span>
+      </div>
+    </div>
+
+    <!-- Step 2a -->
+    <div class="action-card">
+      <div class="info">
+        <div class="label">2a. Self-Signed Certificate</div>
+        <div class="desc">One step: generates a key pair and self-signs a certificate with SAN extensions from your config. No CA needed.</div>
+      </div>
+      <span class="status-dot" id="dot-selfsigned"></span>
+      <button class="btn" id="btn-selfsigned" onclick="stepSelfSigned()"><span>Self-Sign</span></button>
+    </div>
+
+    <!-- Step 2b -->
+    <div class="action-card">
+      <div class="info">
+        <div class="label">2b. CA-Signed Certificate</div>
+        <div class="desc">Generates a key + CSR, then signs it with your local CA from step 1. The proper trust-chain approach.</div>
+      </div>
+      <span class="status-dot" id="dot-casigned"></span>
+      <button class="btn" id="btn-casigned" onclick="stepCASigned()" disabled><span>Sign with CA</span></button>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION: OUTPUT ═══════════════════ -->
+<section class="section" id="output">
+  <div class="section-header">
+    <div class="section-num">04 — Output</div>
+    <div class="section-title">Generated Files & Activity Log</div>
+  </div>
+
+  <div class="two-col">
+
+    <div>
+      <!-- Files -->
+      <div style="margin-bottom: 20px;">
+        <div class="section-title" style="font-size: 16px; margin-bottom: 12px;">📁 Generated Files</div>
+        <div class="files" id="fileList">
+          <div class="empty-state">No files generated yet — run a step above to get started</div>
+        </div>
+      </div>
+
+      <!-- Certificate Inspector -->
+      <div id="certInspector" style="display: none;">
+        <div class="section-title" style="font-size: 16px; margin-bottom: 12px;">🔍 Certificate Details</div>
+        <div class="cert-viewer">
+          <div class="cert-viewer-header">
+            <span class="label" id="inspectorLabel">server.crt</span>
+            <button class="reset-btn" onclick="togglePemView()">Toggle PEM</button>
+          </div>
+          <div class="cert-viewer-body" id="certDetails"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terminal Log -->
+    <div>
+      <div class="section-title" style="font-size: 16px; margin-bottom: 12px;">💻 Activity Log</div>
+      <div class="terminal">
+        <div class="bar">
+          <span class="dot3 r"></span><span class="dot3 y"></span><span class="dot3 g"></span>
+          <span class="title">forge.js — pki</span>
+          <button class="clear-btn" onclick="clearLog()">clear</button>
+        </div>
+        <div id="log"><span class="note">Loading forge.js…</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CA Installation Guide (Hidden initially) -->
+  <div id="caInstallGuide" style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px dashed var(--line);">
+    <div class="section-title" style="font-size: 16px; margin-bottom: 12px; color: var(--green);">✅ CA Ready! How to Trust Your New Certificates:</div>
+    <div class="cert-viewer" style="background: var(--panel-2); padding: 18px; font-size: 13.5px; color: var(--text-dim); border: 1px solid var(--green); border-radius: var(--radius);">
+      <p style="color: var(--text); font-weight: 600; margin-bottom: 10px;">To make your browsers trust the certificates you generate, you must import <code>ca.crt</code> into your operating system's trust store:</p>
+      <ul style="margin-left: 20px; margin-bottom: 14px; line-height: 1.6;">
+        <li style="margin-bottom: 6px;"><b>Windows:</b> Double-click <code>ca.crt</code> → Install Certificate → Local Machine → Place all certificates in the following store: <b>"Trusted Root Certification Authorities"</b>.</li>
+        <li style="margin-bottom: 6px;"><b>macOS:</b> Double-click <code>ca.crt</code> to open Keychain Access. Find the imported certificate in the System keychain, double-click it, expand the "Trust" section, and set "When using this certificate" to <b>"Always Trust"</b>.</li>
+        <li style="margin-bottom: 6px;"><b>Linux:</b> Copy <code>ca.crt</code> to <code>/usr/local/share/ca-certificates/</code>, and run <code>sudo update-ca-certificates</code>.</li>
+        <li><b>Firefox:</b> Firefox uses its own store. Go to Settings → Privacy &amp; Security → View Certificates → Authorities → Import, select <code>ca.crt</code>, and check <b>"Trust this CA to identify websites"</b>.</li>
+      </ul>
+      <p style="font-size: 12.5px; margin-bottom: 0;"><i>Note: Never import a CA unless you generated it yourself or completely trust the source. Once imported, restart your browser.</i></p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ═══════════════════ SECTION: DECODE ═══════════════════ -->
+<section class="section" id="decode">
+  <div class="section-header">
+    <div class="section-num">05 — Decode</div>
+    <div class="section-title">Decode an Existing Certificate</div>
+    <p class="section-desc">Paste a PEM-encoded certificate or upload a <code>.crt</code> / <code>.pem</code> / <code>.cer</code> file to inspect its contents — subject, issuer, SANs, validity, key info, and more.</p>
+  </div>
+
+  <div class="decode-input-area">
+    <div class="decode-paste-wrap">
+      <textarea id="decodePasteInput" placeholder="Paste PEM certificate here…&#10;&#10;-----BEGIN CERTIFICATE-----&#10;MIIDxTCCAq2gAwIBAgI...&#10;-----END CERTIFICATE-----" spellcheck="false"></textarea>
+      <div class="decode-actions">
+        <button class="btn" id="btn-decode" onclick="decodePasted()"><span>Decode</span></button>
+        <span id="decode-status" style="font-size: 12px; color: var(--text-dim);"></span>
+      </div>
+    </div>
+    <div class="drop-zone" id="decodeDropZone" onclick="document.getElementById('decodeFileInput').click()">
+      <div class="drop-icon">📄</div>
+      <div class="drop-text">Drop a certificate file here</div>
+      <div class="drop-hint">.crt · .pem · .cer · .cert</div>
+      <input type="file" id="decodeFileInput" accept=".crt,.pem,.cer,.cert" style="display:none;" onchange="decodeFromFile(this)">
+    </div>
+  </div>
+
+  <div id="decodeResultArea"></div>
+</section>
+
+</div><!-- /main-wrap -->
+
+<footer>
+  <p>🔒 Keys never leave this tab — verify in DevTools' Network panel</p>
+  <p class="trust-note">CertSchool is for development and educational purposes. For production, use a real CA like Let's Encrypt.</p>
+</footer>
+
+<!-- ═══════════════════ FORGE.JS (CDN — dynamic loader) ═══════════════════ -->
+<script>
+// Dynamic loader with multiple CDN fallbacks
+const forgeReady = (function() {
+  const CDNs = [
+    'https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js',
+    'https://unpkg.com/node-forge@1.3.1/dist/forge.min.js'
+  ];
+  function tryLoad(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve(url);
+      s.onerror = () => reject(new Error('Failed: ' + url));
+      document.head.appendChild(s);
+    });
+  }
+  async function loadForge() {
+    for (const url of CDNs) {
+      try {
+        const loaded = await tryLoad(url);
+        return loaded;
+      } catch(e) { /* try next */ }
+    }
+    throw new Error('All CDN sources failed');
+  }
+  return loadForge();
+})();
+</script>
+
+<script>
+// ────────────────────────────────────────────────────
+//  DEFAULT CONFIG
+// ────────────────────────────────────────────────────
+const DEFAULT_CNF = `[dn]
+C  = US
+ST = California
+L  = San Francisco
+O  = CertSchool Dev
+OU = Engineering
+CN = myapp.local
+
+[alt_names]
+DNS.1 = myapp.local
+DNS.2 = www.myapp.local
+DNS.3 = *.myapp.local
+IP.1  = 127.0.0.1
+`;
+
+document.getElementById('sanCnf').value = DEFAULT_CNF;
+function resetCnf() { document.getElementById('sanCnf').value = DEFAULT_CNF; }
+
+// ────────────────────────────────────────────────────
+//  NAV
+// ────────────────────────────────────────────────────
+function setActiveNav(el) {
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+}
+// Highlight nav on scroll
+const sections = ['learn','configure','generate','output','decode'];
+const navLinks = document.querySelectorAll('.nav-link');
+window.addEventListener('scroll', () => {
+  let current = sections[0];
+  for (const id of sections) {
+    const sec = document.getElementById(id);
+    if (sec && sec.getBoundingClientRect().top <= 120) current = id;
+  }
+  navLinks.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+  });
+});
+
+// ────────────────────────────────────────────────────
+//  LOGGING
+// ────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function logLine(text, cls) {
+  const div = document.createElement('div');
+  div.className = cls || '';
+  div.textContent = text;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function logCmd(text) { logLine(text, 'cmd'); }
+function logSep() { logLine('─'.repeat(50), 'sep'); }
+function clearLog() { logEl.innerHTML = ''; logLine('Log cleared.', 'note'); }
+
+// ────────────────────────────────────────────────────
+//  STATE
+// ────────────────────────────────────────────────────
+const store = {}; // filename -> PEM string
+let showPem = false;
+
+// ────────────────────────────────────────────────────
+//  CONFIG PARSER
+// ────────────────────────────────────────────────────
+function parseCnf(text) {
+  const result = { dn: {}, altNames: [] };
+  let currentSection = '';
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+    const secMatch = line.match(/^\[(.+)\]$/);
+    if (secMatch) { currentSection = secMatch[1].trim(); continue; }
+    const kvMatch = line.match(/^([^=]+)=(.+)$/);
+    if (!kvMatch) continue;
+    const key = kvMatch[1].trim();
+    const val = kvMatch[2].trim();
+    if (currentSection === 'dn') {
+      result.dn[key] = val;
+    } else if (currentSection === 'alt_names') {
+      if (key.toUpperCase().startsWith('DNS')) {
+        result.altNames.push({ type: 2, value: val }); // DNS
+      } else if (key.toUpperCase().startsWith('IP')) {
+        result.altNames.push({ type: 7, ip: val }); // IP
+      }
+    }
+  }
+  return result;
+}
+
+function buildAttrs(dn) {
+  const attrs = [];
+  const map = {
+    'C': 'countryName',
+    'ST': 'stateOrProvinceName',
+    'L': 'localityName',
+    'O': 'organizationName',
+    'OU': 'organizationalUnitName',
+    'CN': 'commonName',
+  };
+  for (const [short, val] of Object.entries(dn)) {
+    const name = map[short];
+    if (name) {
+      attrs.push({ name, value: val });
+    } else {
+      attrs.push({ shortName: short, value: val });
+    }
+  }
+  return attrs;
+}
+
+function randomSerial() {
+  const bytes = forge.random.getBytesSync(16);
+  return forge.util.bytesToHex(bytes);
+}
+
+// ────────────────────────────────────────────────────
+//  STATUS HELPERS
+// ────────────────────────────────────────────────────
+function setDot(id, state) {
+  const el = document.getElementById(id);
+  el.className = 'status-dot' + (state === 'ok' ? ' ok' : state === 'busy' ? ' busy' : '');
+}
+function setBtn(id, disabled) { document.getElementById(id).disabled = disabled; }
+
+function getKeySize() { return parseInt(document.getElementById('keySize').value); }
+function getValidityDays() { return parseInt(document.getElementById('validityDays').value); }
+
+// ────────────────────────────────────────────────────
+//  RENDER FILES
+// ────────────────────────────────────────────────────
+function makeDownloadBtn(pemContent, filename, label) {
+  const blob = new Blob([pemContent], { type: 'application/x-pem-file' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.textContent = label || ('↓ ' + filename);
+  a.className = 'dl-btn';
+  return a;
+}
+
+function renderFiles() {
+  const list = document.getElementById('fileList');
+  const entries = Object.keys(store).filter(k => /\.(key|crt|csr)$/.test(k));
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty-state">No files generated yet — run a step above to get started</div>';
+    return;
+  }
+  list.innerHTML = '';
+
+  // Group by base name (ca, server)
+  const groups = {};
+  entries.sort().forEach(name => {
+    const base = name.split('.')[0]; // 'ca' or 'server'
+    if (!groups[base]) groups[base] = [];
+    groups[base].push(name);
+  });
+
+  const groupIcons = { ca: '🏛️', server: '🌐' };
+  const groupLabels = { ca: 'Certificate Authority', server: 'Server Certificate' };
+  const extLabels = { '.key': 'Private Key', '.crt': 'Certificate', '.csr': 'Signing Request' };
+
+  for (const [base, files] of Object.entries(groups)) {
+    const group = document.createElement('div');
+    group.className = 'file-group';
+
+    const header = document.createElement('div');
+    header.className = 'file-group-header';
+    header.innerHTML = `<span class="fg-icon">${groupIcons[base] || '📁'}</span> ${groupLabels[base] || base}`;
+    group.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'file-group-body';
+
+    files.forEach(name => {
+      const ext = name.substring(name.lastIndexOf('.'));
+      const pemName = name.replace(/\.(key|crt|csr)$/, '.pem');
+      // For key files, the .pem is the same content; for crt, same PEM content
+      const entry = document.createElement('div');
+      entry.className = 'file-entry';
+
+      const info = document.createElement('span');
+      info.innerHTML = `<span class="fe-name">${name}</span><span class="fe-ext">${extLabels[ext] || ext}</span>`;
+
+      const actions = document.createElement('span');
+      actions.className = 'fe-actions';
+      actions.appendChild(makeDownloadBtn(store[name], name, '↓ ' + ext.substring(1)));
+      // Offer .pem download for .key and .crt (not .csr — CSRs are intermediate)
+      if (ext === '.crt' || ext === '.key') {
+        actions.appendChild(makeDownloadBtn(store[name], pemName, '↓ .pem'));
+      }
+
+      entry.appendChild(info);
+      entry.appendChild(actions);
+      body.appendChild(entry);
+    });
+
+    group.appendChild(body);
+    list.appendChild(group);
+  }
+}
+
+// ────────────────────────────────────────────────────
+//  CERTIFICATE INSPECTOR
+// ────────────────────────────────────────────────────
+function inspectCert(name, pemStr) {
+  const panel = document.getElementById('certInspector');
+  panel.style.display = 'block';
+  document.getElementById('inspectorLabel').textContent = name;
+  showPem = false;
+  renderCertDetails(name, pemStr);
+}
+
+function renderCertDetails(name, pemStr) {
+  const el = document.getElementById('certDetails');
+  if (showPem) {
+    el.textContent = pemStr;
+    return;
+  }
+  try {
+    const cert = forge.pki.certificateFromPem(pemStr);
+    const subj = cert.subject.attributes.map(a => `${a.shortName || a.name}=${a.value}`).join(', ');
+    const issuer = cert.issuer.attributes.map(a => `${a.shortName || a.name}=${a.value}`).join(', ');
+    const san = cert.getExtension('subjectAltName');
+    let sanStr = '(none)';
+    if (san && san.altNames) {
+      sanStr = san.altNames.map(a => {
+        if (a.type === 2) return 'DNS: ' + a.value;
+        if (a.type === 7) return 'IP: ' + a.ip;
+        return a.value;
+      }).join('\n                    ');
+    }
+    const serial = cert.serialNumber;
+    const notBefore = cert.validity.notBefore.toISOString();
+    const notAfter = cert.validity.notAfter.toISOString();
+    const isCA = cert.getExtension('basicConstraints');
+    const isCACert = isCA && isCA.cA;
+
+    el.innerHTML = `<div class="cert-field"><span class="cf-label">Subject:        </span><span class="cf-value">${subj}</span></div>
+<div class="cert-field"><span class="cf-label">Issuer:         </span><span class="cf-value">${issuer}</span></div>
+<div class="cert-field"><span class="cf-label">Serial:         </span><span class="cf-value">${serial}</span></div>
+<div class="cert-field"><span class="cf-label">Not Before:     </span><span class="cf-value">${notBefore}</span></div>
+<div class="cert-field"><span class="cf-label">Not After:      </span><span class="cf-value">${notAfter}</span></div>
+<div class="cert-field"><span class="cf-label">Is CA:          </span><span class="cf-value">${isCACert ? 'Yes' : 'No'}</span></div>
+<div class="cert-field"><span class="cf-label">Key Size:       </span><span class="cf-value">${cert.publicKey.n.bitLength()} bit RSA</span></div>
+<div class="cert-field"><span class="cf-label">SAN:            </span><span class="cf-value">${sanStr}</span></div>`;
+  } catch(e) {
+    el.textContent = 'Could not parse certificate: ' + e.message;
+  }
+}
+
+function togglePemView() {
+  showPem = !showPem;
+  const name = document.getElementById('inspectorLabel').textContent;
+  if (store[name]) renderCertDetails(name, store[name]);
+}
+
+// ────────────────────────────────────────────────────
+//  DECODE CERTIFICATE (Section 05)
+// ────────────────────────────────────────────────────
+function decodePasted() {
+  const pem = document.getElementById('decodePasteInput').value.trim();
+  if (!pem) {
+    document.getElementById('decode-status').textContent = 'Paste a PEM certificate first';
+    return;
+  }
+  document.getElementById('decode-status').textContent = '';
+  renderDecodeResult(pem);
+}
+
+function decodeFromFile(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const pem = reader.result.trim();
+    document.getElementById('decodePasteInput').value = pem;
+    renderDecodeResult(pem);
+  };
+  reader.readAsText(input.files[0]);
+}
+
+// Drag and drop
+(function() {
+  const zone = document.getElementById('decodeDropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const pem = reader.result.trim();
+      document.getElementById('decodePasteInput').value = pem;
+      renderDecodeResult(pem);
+    };
+    reader.readAsText(file);
+  });
+})();
+
+function renderDecodeResult(pemStr) {
+  const area = document.getElementById('decodeResultArea');
+  try {
+    const cert = forge.pki.certificateFromPem(pemStr);
+    const subj = cert.subject.attributes.map(a => `${a.shortName || a.name}=${a.value}`).join(', ');
+    const issuer = cert.issuer.attributes.map(a => `${a.shortName || a.name}=${a.value}`).join(', ');
+    const serial = cert.serialNumber;
+    const notBefore = cert.validity.notBefore;
+    const notAfter = cert.validity.notAfter;
+    const now = new Date();
+
+    // Validity status
+    const totalMs = notAfter - notBefore;
+    const elapsedMs = now - notBefore;
+    const pct = Math.max(0, Math.min(100, (elapsedMs / totalMs) * 100));
+    const isExpired = now > notAfter;
+    const daysLeft = Math.ceil((notAfter - now) / 86400000);
+    const isExpiring = !isExpired && daysLeft <= 30;
+    const barClass = isExpired ? 'expired' : isExpiring ? 'expiring' : 'valid';
+    const statusText = isExpired ? 'Expired' : isExpiring ? `Expiring in ${daysLeft} days` : `Valid — ${daysLeft} days remaining`;
+    const statusColor = isExpired ? 'var(--rose)' : isExpiring ? 'var(--amber)' : 'var(--green)';
+
+    // CA / Self-signed detection
+    const bc = cert.getExtension('basicConstraints');
+    const isCACert = bc && bc.cA;
+    const isSelfSigned = subj === issuer;
+    let badgeHtml = '';
+    if (isCACert) badgeHtml = '<span class="dr-badge ca">CA certificate</span>';
+    else if (isSelfSigned) badgeHtml = '<span class="dr-badge selfsigned">self-signed</span>';
+    else badgeHtml = '<span class="dr-badge leaf">leaf certificate</span>';
+
+    // SAN
+    const sanExt = cert.getExtension('subjectAltName');
+    let sanHtml = '<span style="color:var(--text-dim)">No SAN entries</span>';
+    if (sanExt && sanExt.altNames && sanExt.altNames.length) {
+      sanHtml = '<div class="san-tags">' + sanExt.altNames.map(a => {
+        if (a.type === 2) return `<span class="san-tag">DNS: ${a.value}</span>`;
+        if (a.type === 7) return `<span class="san-tag ip">IP: ${a.ip}</span>`;
+        return `<span class="san-tag">${a.value || a.ip || '?'}</span>`;
+      }).join('') + '</div>';
+    }
+
+    // Key usage
+    const ku = cert.getExtension('keyUsage');
+    const eku = cert.getExtension('extKeyUsage');
+    let kuList = [];
+    if (ku) {
+      if (ku.digitalSignature) kuList.push('Digital Signature');
+      if (ku.nonRepudiation) kuList.push('Non-Repudiation');
+      if (ku.keyEncipherment) kuList.push('Key Encipherment');
+      if (ku.dataEncipherment) kuList.push('Data Encipherment');
+      if (ku.keyAgreement) kuList.push('Key Agreement');
+      if (ku.keyCertSign) kuList.push('Key Cert Sign');
+      if (ku.cRLSign) kuList.push('CRL Sign');
+    }
+    if (eku) {
+      if (eku.serverAuth) kuList.push('Server Auth');
+      if (eku.clientAuth) kuList.push('Client Auth');
+      if (eku.codeSigning) kuList.push('Code Signing');
+    }
+    const kuStr = kuList.length ? kuList.join(', ') : 'Not specified';
+
+    // Key info
+    let keyInfo = 'Unknown';
+    try { keyInfo = cert.publicKey.n.bitLength() + '-bit RSA'; } catch(e) {}
+
+    // Fingerprint
+    const der = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
+    const sha256 = forge.md.sha256.create();
+    sha256.update(der);
+    const fingerprint = sha256.digest().toHex().match(/.{2}/g).join(':').toUpperCase();
+
+    area.innerHTML = `
+      <div class="decode-result">
+        <div class="decode-result-header">
+          <span class="dr-title">Certificate Details</span>
+          ${badgeHtml}
+        </div>
+        <div class="decode-result-body">
+          <div class="decode-grid">
+            <div class="decode-field">
+              <div class="df-label">Subject</div>
+              <div class="df-value">${escHtml(subj)}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Issuer</div>
+              <div class="df-value">${escHtml(issuer)}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Valid From</div>
+              <div class="df-value">${notBefore.toLocaleDateString()} ${notBefore.toLocaleTimeString()}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Valid Until</div>
+              <div class="df-value" style="color:${statusColor}">${notAfter.toLocaleDateString()} ${notAfter.toLocaleTimeString()}</div>
+            </div>
+            <div class="decode-field full-width">
+              <div class="df-label">Validity Status</div>
+              <div class="df-value" style="color:${statusColor}">${statusText}</div>
+              <div class="validity-bar"><div class="fill ${barClass}" style="width:${pct}%"></div></div>
+            </div>
+            <div class="decode-field full-width">
+              <div class="df-label">Subject Alternative Names</div>
+              <div class="df-value">${sanHtml}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Serial Number</div>
+              <div class="df-value mono">${serial}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Public Key</div>
+              <div class="df-value">${keyInfo}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Key Usage</div>
+              <div class="df-value">${kuStr}</div>
+            </div>
+            <div class="decode-field">
+              <div class="df-label">Is CA</div>
+              <div class="df-value">${isCACert ? 'Yes' : 'No'}${isSelfSigned ? ' (self-signed)' : ''}</div>
+            </div>
+            <div class="decode-field full-width">
+              <div class="df-label">SHA-256 Fingerprint</div>
+              <div class="df-value mono" style="font-size:11px;">${fingerprint}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('decode-status').textContent = '';
+    document.getElementById('decodeResultArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch(e) {
+    area.innerHTML = `
+      <div class="decode-result">
+        <div class="decode-result-header">
+          <span class="dr-title" style="color:var(--rose)">Decode Failed</span>
+        </div>
+        <div class="decode-result-body">
+          <p style="color:var(--text-dim);">Could not parse the input as a valid PEM certificate.</p>
+          <p style="color:var(--text-dim); font-size:13px; margin-top:8px;">Make sure you include the full PEM block including the <code style="font-family:var(--mono);color:var(--accent);font-size:12px;">-----BEGIN CERTIFICATE-----</code> and <code style="font-family:var(--mono);color:var(--accent);font-size:12px;">-----END CERTIFICATE-----</code> lines.</p>
+          <p style="color:var(--rose); font-family:var(--mono); font-size:12px; margin-top:12px;">Error: ${escHtml(e.message)}</p>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ────────────────────────────────────────────────────
+//  UPLOAD EXISTING CA
+// ────────────────────────────────────────────────────
+function handleCAUpload() {
+  const keyInput = document.getElementById('upload-ca-key');
+  const crtInput = document.getElementById('upload-ca-crt');
+  const statusEl = document.getElementById('upload-ca-status');
+  const readFile = f => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsText(f);
+  });
+
+  (async () => {
+    if (keyInput.files[0]) store['ca.key'] = await readFile(keyInput.files[0]);
+    if (crtInput.files[0]) store['ca.crt'] = await readFile(crtInput.files[0]);
+    if (store['ca.key'] && store['ca.crt']) {
+      setDot('dot-ca', 'ok');
+      setBtn('btn-casigned', false);
+      statusEl.textContent = '✓ using uploaded ca.key + ca.crt';
+      logLine('Loaded existing CA from disk — ca.key and ca.crt now available', 'info');
+      logSep();
+      const cert = forge.pki.certificateFromPem(store['ca.crt']);
+      const cnAttr = cert.subject.attributes.find(a => a.shortName === 'CN' || a.name === 'commonName');
+      if (cnAttr) document.querySelector('#chain-root .node-name').textContent = cnAttr.value;
+      renderFiles();
+      const guide = document.getElementById('caInstallGuide');
+      if (guide) guide.style.display = 'block';
+    } else {
+      statusEl.textContent = 'need both ca.key and ca.crt';
+    }
+  })();
+}
+
+// ────────────────────────────────────────────────────
+//  STEP 1: GENERATE CA
+// ────────────────────────────────────────────────────
+async function stepGenerateCA() {
+  await forgeReady; // ensure forge.js is loaded
+  setDot('dot-ca', 'busy');
+  setBtn('btn-ca', true);
+  const keySize = getKeySize();
+  const caCN = document.getElementById('ca-cn').value.trim() || 'CertSchool Local Dev CA';
+  const caO = document.getElementById('ca-o').value.trim() || 'CertSchool';
+
+  logLine('─── Step 1: Generate Root CA ───', 'info');
+  logCmd(`openssl req -x509 -newkey rsa:${keySize} -keyout ca.key -out ca.crt -days 3650 -nodes -subj "/CN=${caCN}/O=${caO}"`);
+  logLine('Generating RSA key pair... (this may take a moment for larger keys)', 'note');
+
+  // Use setTimeout to unblock the UI before heavy computation
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const keys = forge.pki.rsa.generateKeyPair({ bits: keySize, workers: -1 });
+    logLine(`✓ Generated ${keySize}-bit RSA key pair`, 'ok');
+
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = randomSerial();
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
+
+    const caAttrs = [
+      { name: 'commonName', value: caCN },
+      { name: 'organizationName', value: caO },
+    ];
+    cert.setSubject(caAttrs);
+    cert.setIssuer(caAttrs); // self-signed
+
+    cert.setExtensions([
+      { name: 'basicConstraints', cA: true, critical: true },
+      { name: 'keyUsage', keyCertSign: true, cRLSign: true, critical: true },
+      { name: 'subjectKeyIdentifier' },
+    ]);
+
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+    logLine('✓ Self-signed CA certificate created', 'ok');
+
+    store['ca.key'] = forge.pki.privateKeyToPem(keys.privateKey);
+    store['ca.crt'] = forge.pki.certificateToPem(cert);
+    store['_ca_privateKey'] = keys.privateKey;
+    store['_ca_cert'] = cert;
+
+    document.querySelector('#chain-root .node-name').textContent = caCN;
+
+    logLine(`  Subject:  CN=${caCN}, O=${caO}`, 'stdout');
+    logLine(`  Validity: 10 years`, 'stdout');
+    logLine(`  Serial:   ${cert.serialNumber.substring(0,16)}...`, 'stdout');
+    logLine('✓ CA ready — you can now use step 2b', 'ok');
+    logSep();
+
+    setDot('dot-ca', 'ok');
+    setBtn('btn-casigned', false);
+    document.getElementById('chain-root').classList.add('active');
+    renderFiles();
+    inspectCert('ca.crt', store['ca.crt']);
+    const guide = document.getElementById('caInstallGuide');
+    if (guide) guide.style.display = 'block';
+  } catch(e) {
+    logLine('✗ Error: ' + e.message, 'cmd');
+    logSep();
+    setDot('dot-ca', '');
+  }
+  setBtn('btn-ca', false);
+}
+
+// ────────────────────────────────────────────────────
+//  STEP 2a: SELF-SIGNED
+// ────────────────────────────────────────────────────
+async function stepSelfSigned() {
+  await forgeReady; // ensure forge.js is loaded
+  setDot('dot-selfsigned', 'busy');
+  setBtn('btn-selfsigned', true);
+  const keySize = getKeySize();
+  const days = getValidityDays();
+
+  const cnfText = document.getElementById('sanCnf').value;
+  const cnf = parseCnf(cnfText);
+
+  logLine('─── Step 2a: Self-Signed Certificate ───', 'info');
+  logCmd(`openssl req -x509 -newkey rsa:${keySize} -keyout server.key -out server.crt -days ${days} -nodes -config san.cnf`);
+  logLine(`Generating ${keySize}-bit RSA key pair...`, 'note');
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const keys = forge.pki.rsa.generateKeyPair({ bits: keySize, workers: -1 });
+    logLine(`✓ Generated ${keySize}-bit RSA key pair`, 'ok');
+
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = randomSerial();
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setDate(cert.validity.notBefore.getDate() + days);
+
+    const attrs = buildAttrs(cnf.dn);
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs); // self-signed
+
+    const extensions = [
+      { name: 'basicConstraints', cA: false },
+      { name: 'keyUsage', nonRepudiation: true, digitalSignature: true, keyEncipherment: true },
+      { name: 'subjectKeyIdentifier' },
+    ];
+    if (cnf.altNames.length > 0) {
+      extensions.push({ name: 'subjectAltName', altNames: cnf.altNames });
+    }
+    cert.setExtensions(extensions);
+
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+    logLine('✓ Self-signed certificate created', 'ok');
+
+    store['server.key'] = forge.pki.privateKeyToPem(keys.privateKey);
+    store['server.crt'] = forge.pki.certificateToPem(cert);
+
+    const cn = cnf.dn.CN || '(unnamed)';
+    logLine(`  Subject:  CN=${cn}`, 'stdout');
+    logLine(`  Validity: ${days} days`, 'stdout');
+    logLine(`  SANs:     ${cnf.altNames.map(a => a.value || a.ip).join(', ') || '(none)'}`, 'stdout');
+    logLine('✓ Files: server.key, server.crt', 'ok');
+    logSep();
+
+    setDot('dot-selfsigned', 'ok');
+    renderFiles();
+    inspectCert('server.crt', store['server.crt']);
+  } catch(e) {
+    logLine('✗ Error: ' + e.message, 'err');
+    logSep();
+    setDot('dot-selfsigned', '');
+  }
+  setBtn('btn-selfsigned', false);
+}
+
+// ────────────────────────────────────────────────────
+//  STEP 2b: CA-SIGNED
+// ────────────────────────────────────────────────────
+async function stepCASigned() {
+  await forgeReady; // ensure forge.js is loaded
+  if (!store['ca.key'] || !store['ca.crt']) {
+    logLine('✗ Run step 1 (generate a CA) first', 'err');
+    return;
+  }
+  setDot('dot-casigned', 'busy');
+  setBtn('btn-casigned', true);
+  const keySize = getKeySize();
+  const days = getValidityDays();
+
+  const cnfText = document.getElementById('sanCnf').value;
+  const cnf = parseCnf(cnfText);
+
+  logLine('─── Step 2b: CA-Signed Certificate ───', 'info');
+
+  // Step i: Generate key + CSR
+  logCmd(`openssl req -newkey rsa:${keySize} -keyout server.key -out server.csr -nodes -config san.cnf`);
+  logLine(`Generating ${keySize}-bit RSA key pair for server...`, 'note');
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const serverKeys = forge.pki.rsa.generateKeyPair({ bits: keySize, workers: -1 });
+    logLine(`✓ Generated ${keySize}-bit RSA key pair`, 'ok');
+
+    // Create CSR
+    const csr = forge.pki.createCertificationRequest();
+    csr.publicKey = serverKeys.publicKey;
+    const attrs = buildAttrs(cnf.dn);
+    csr.setSubject(attrs);
+
+    // Add SAN as a CSR attribute
+    if (cnf.altNames.length > 0) {
+      csr.setAttributes([{
+        name: 'extensionRequest',
+        extensions: [{ name: 'subjectAltName', altNames: cnf.altNames }]
+      }]);
+    }
+    csr.sign(serverKeys.privateKey, forge.md.sha256.create());
+
+    store['server.key'] = forge.pki.privateKeyToPem(serverKeys.privateKey);
+    store['server.csr'] = forge.pki.certificationRequestToPem(csr);
+    logLine('✓ CSR generated', 'ok');
+    document.getElementById('chain-csr').classList.add('active');
+
+    // Step ii: Sign with CA
+    logCmd(`openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days ${days} -extfile san.cnf -extensions v3_req`);
+    logLine('Signing CSR with CA key...', 'note');
+
+    // Get CA key and cert
+    let caPrivateKey, caCert;
+    if (store['_ca_privateKey']) {
+      caPrivateKey = store['_ca_privateKey'];
+      caCert = store['_ca_cert'];
+    } else {
+      caPrivateKey = forge.pki.privateKeyFromPem(store['ca.key']);
+      caCert = forge.pki.certificateFromPem(store['ca.crt']);
+    }
+
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = serverKeys.publicKey;
+    cert.serialNumber = randomSerial();
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setDate(cert.validity.notBefore.getDate() + days);
+
+    cert.setSubject(attrs);
+    cert.setIssuer(caCert.subject.attributes); // signed by CA
+
+    const extensions = [
+      { name: 'basicConstraints', cA: false },
+      { name: 'keyUsage', nonRepudiation: true, digitalSignature: true, keyEncipherment: true },
+      { name: 'subjectKeyIdentifier' },
+      { name: 'authorityKeyIdentifier', keyIdentifier: true },
+    ];
+    if (cnf.altNames.length > 0) {
+      extensions.push({ name: 'subjectAltName', altNames: cnf.altNames });
+    }
+    cert.setExtensions(extensions);
+
+    cert.sign(caPrivateKey, forge.md.sha256.create()); // signed by CA's private key!
+    logLine('✓ Certificate signed by CA', 'ok');
+
+    store['server.crt'] = forge.pki.certificateToPem(cert);
+
+    const cn = cnf.dn.CN || '(unnamed)';
+    const issuerCNAttr = caCert.subject.attributes.find(a => a.shortName === 'CN' || a.name === 'commonName');
+    const issuerCN = issuerCNAttr ? issuerCNAttr.value : '(unknown)';
+    logLine(`  Subject:  CN=${cn}`, 'stdout');
+    logLine(`  Issuer:   CN=${issuerCN}`, 'stdout');
+    logLine(`  Validity: ${days} days`, 'stdout');
+    logLine(`  SANs:     ${cnf.altNames.map(a => a.value || a.ip).join(', ') || '(none)'}`, 'stdout');
+    logLine('✓ Files: server.key, server.csr, server.crt', 'ok');
+
+    // Verify the chain
+    logLine('Verifying certificate chain...', 'note');
+    try {
+      const caStore = forge.pki.createCaStore([caCert]);
+      forge.pki.verifyCertificateChain(caStore, [cert]);
+      logLine('✓ Chain verification passed — cert is trusted by the CA', 'ok');
+    } catch(ve) {
+      logLine('⚠ Chain verification: ' + ve.message, 'err');
+    }
+    logSep();
+
+    setDot('dot-casigned', 'ok');
+    document.getElementById('chain-leaf').classList.add('active');
+    renderFiles();
+    inspectCert('server.crt', store['server.crt']);
+  } catch(e) {
+    logLine('✗ Error: ' + e.message, 'err');
+    logSep();
+    setDot('dot-casigned', '');
+  }
+  setBtn('btn-casigned', false);
+}
+
+// ────────────────────────────────────────────────────
+//  INIT — wait for dynamic CDN loader
+// ────────────────────────────────────────────────────
+let forgeLoaded = false;
+forgeReady.then(url => {
+  forgeLoaded = true;
+  logEl.innerHTML = '';
+  logLine('✓ forge.js loaded successfully', 'ok');
+  logLine('  Source: ' + url, 'stdout');
+  logLine('Ready — pick a step to begin generating certificates.', 'note');
+  logLine('Each step shows the equivalent openssl command for reference.', 'note');
+  logSep();
+}).catch(err => {
+  logEl.innerHTML = '';
+  logLine('✗ Failed to load forge.js from all CDN sources', 'err');
+  logLine('  Check your network connection or try disabling ad-blockers.', 'err');
+  logLine('  Error: ' + err.message, 'err');
+});
+</script>
+
+</body>
+</html>
